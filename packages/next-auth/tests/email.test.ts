@@ -124,6 +124,53 @@ it("Send e-mail to address with first domain", async () => {
   )
 })
 
+it("Send e-mail to with query", async () => {
+  const { secret, csrf } = await createCSRF()
+
+  const sendVerificationRequest = jest.fn()
+  const signIn = jest.fn(() => true)
+
+  const email = "email@example.com"
+  const { res } = await handler(
+    {
+      adapter: mockAdapter(),
+      providers: [EmailProvider({ sendVerificationRequest })],
+      callbacks: { signIn },
+      secret,
+      trustHost: true,
+    },
+    {
+      path: "signin/email",
+      params: {
+        foo: "bar",
+      },
+      requestInit: {
+        method: "POST",
+        headers: { cookie: csrf.cookie, "content-type": "application/json" },
+        body: JSON.stringify({ email: email, csrfToken: csrf.value }),
+      },
+    }
+  )
+
+  expect(res.redirect).toBe(
+    "http://localhost:3000/api/auth/verify-request?provider=email&type=email"
+  )
+
+  expect(signIn).toBeCalledTimes(1)
+  expect(signIn).toHaveBeenCalledWith(
+    expect.objectContaining({
+      user: expect.objectContaining({ email }),
+    })
+  )
+
+  expect(sendVerificationRequest).toHaveBeenCalledWith(
+    expect.objectContaining({
+      identifier: email,
+      url: expect.stringContaining("foo=bar"),
+    })
+  )
+})
+
 it("Redirect to error page if multiple addresses aren't allowed", async () => {
   const { secret, csrf } = await createCSRF()
   const sendVerificationRequest = jest.fn()
@@ -168,5 +215,90 @@ it("Redirect to error page if multiple addresses aren't allowed", async () => {
 
   expect(res.redirect).toBe(
     "http://localhost:3000/api/auth/error?error=EmailSignin"
+  )
+})
+
+it("Handle e-mail callback", async () => {
+  const email = "email@example.com"
+  const token = "dummyToken"
+  const signIn = jest.fn(() => true)
+  const createUser = jest.fn(() => ({
+    id: "dummyId",
+    email,
+    emailVerified: null,
+  }))
+  const { res } = await handler(
+    {
+      adapter: {
+        ...mockAdapter(),
+        createUser,
+        createSession: () => ({} as any),
+        useVerificationToken: () => ({
+          identifier: email,
+          expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          token,
+        }),
+      },
+      providers: [EmailProvider({})],
+      callbacks: { signIn },
+      trustHost: true,
+    },
+    {
+      path: "callback/email",
+      params: {
+        email,
+        token,
+      },
+      requestInit: {
+        method: "GET",
+      },
+    }
+  )
+
+  expect(res.redirect).toBe("http://localhost:3000")
+  expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ email }))
+})
+
+it("Handle e-mail callback with query", async () => {
+  const email = "email@example.com"
+  const token = "dummyToken"
+  const signIn = jest.fn(() => true)
+  const createUser = jest.fn(() => ({
+    id: "dummyId",
+    email,
+    emailVerified: null,
+  }))
+  const { res } = await handler(
+    {
+      adapter: {
+        ...mockAdapter(),
+        createUser,
+        createSession: () => ({} as any),
+        useVerificationToken: () => ({
+          identifier: email,
+          expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          token,
+        }),
+      },
+      providers: [EmailProvider({})],
+      callbacks: { signIn },
+      trustHost: true,
+    },
+    {
+      path: "callback/email",
+      params: {
+        email,
+        token,
+        foo: "bar",
+      },
+      requestInit: {
+        method: "GET",
+      },
+    }
+  )
+
+  expect(res.redirect).toBe("http://localhost:3000")
+  expect(createUser).toHaveBeenCalledWith(
+    expect.objectContaining({ email, foo: "bar" })
   )
 })

@@ -198,8 +198,15 @@ export default async function callback(params: {
     }
   } else if (provider.type === "email") {
     try {
-      const token = query?.token as string | undefined
-      const identifier = query?.email as string | undefined
+      const {
+        token,
+        email: identifier,
+        callbackUrl: _,
+        ...newUserQuery
+      } = query as {
+        token: string | undefined
+        email: string | undefined
+      } & Record<string, any>
 
       // If these are missing, the sign-in URL was manually opened without these params or the `sendVerificationRequest` method did not send the link correctly in the email.
       if (!token || !identifier) {
@@ -219,6 +226,7 @@ export default async function callback(params: {
 
       const profile = await getAdapterUserFromEmail({
         email: identifier,
+        query: newUserQuery,
         // @ts-expect-error -- Verified in `assertConfig`. adapter: Adapter<true>
         adapter,
       })

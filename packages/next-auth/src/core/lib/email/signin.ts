@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto"
 import { hashToken } from "../utils"
 import type { InternalOptions } from "../../types"
+import { RequestInternal } from "../../"
 
 /**
  * Starts an e-mail login flow, by generating a token,
@@ -8,6 +9,7 @@ import type { InternalOptions } from "../../types"
  */
 export default async function email(
   identifier: string,
+  query: RequestInternal["query"],
   options: InternalOptions<"email">
 ): Promise<string> {
   const { url, adapter, provider, callbackUrl, theme } = options
@@ -22,7 +24,12 @@ export default async function email(
   )
 
   // Generate a link with email, unhashed token and callback url
-  const params = new URLSearchParams({ callbackUrl, token, email: identifier })
+  const params = new URLSearchParams({
+    ...query,
+    callbackUrl,
+    token,
+    email: identifier,
+  })
   const _url = `${url}/callback/${provider.id}?${params}`
 
   await Promise.all([

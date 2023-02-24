@@ -7,14 +7,16 @@ import type { InternalOptions } from "../../types"
  */
 export default async function getAdapterUserFromEmail({
   email,
+  query,
   adapter,
 }: {
   email: string
+  query: Record<string, any>
   adapter: InternalOptions<"email">["adapter"]
 }): Promise<AdapterUser> {
   const { getUserByEmail } = adapter
   const adapterUser = email ? await getUserByEmail(email) : null
   if (adapterUser) return adapterUser
 
-  return { id: email, email, emailVerified: null }
+  return { ...query, id: email, email, emailVerified: null }
 }
